@@ -39,10 +39,9 @@ func put(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func InitHandler() {
-	http.HandleFunc("/get", get)
-	http.HandleFunc("/put", put)
-
-	http.ListenAndServe(":8090", nil)
-
+func GetHandler() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/get", get)
+	mux.HandleFunc("/put", put)
+	return mux
 }
