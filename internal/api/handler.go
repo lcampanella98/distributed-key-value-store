@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"slices"
 
 	"encoding/json"
 
@@ -25,7 +26,7 @@ func get(w http.ResponseWriter, req *http.Request) {
 	} else {
 		// fmt.Printf("node %s owns key %s\n", ownerNode.Name, key)
 		var err error
-		res, err = client.Get(key, ownerNode.Node.Addr)
+		res, err = client.Get(key, ownerNode.Addr)
 		if err != nil {
 			fmt.Printf("Error occurred in get: %v\n", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -41,22 +42,41 @@ func put(w http.ResponseWriter, req *http.Request) {
 	q := req.URL.Query()
 	key := q.Get("key")
 	value := q.Get("value")
+	coordinator := q.Get("coordinator")
+	isCoordinator := coordinator == ""
 	// fmt.Println("Put " + key + "=" + value)
 
 	var res types.PutResponse
-	ownerNode := cluster.GetOwnerNode(key)
-	if ownerNode.Name == cluster.ThisNode.Name {
-		// fmt.Printf("this node owns key %s\n", key)
+	ownerAndReplicas := cluster.GetReplicaSet(key)
+	thisNodeIndex := slices.IndexFunc(ownerAndReplicas, func(node cluster.Node) bool {
+		return node.Name == cluster.ThisNode.Name
+	})
+
+	if !isCoordinator && thisNodeIndex != -1 {
+		// this node is owner or replica, and not the coordinator, so only put into this node's cache
 		cache.Cache[key] = value
-		res = types.PutResponse{Ok: true, OnNode: ownerNode.Name, CacheSize: len(cache.Cache)}
-	} else {
-		// fmt.Printf("node %s owns key %s\n", ownerNode.Name, key)
-		var err error
-		res, err = client.Put(key, value, ownerNode.Node.Addr)
-		if err != nil {
-			fmt.Printf("Error occurred in put: %v\n", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+		res = types.PutResponse{Ok: true, OnNode: cluster.ThisNode.Name, CacheSize: len(cache.Cache)}
+	} else if isCoordinator {
+		for i, node := range ownerAndReplicas {
+			var response types.PutResponse
+			var err error
+			if i == thisNodeIndex {
+				// coordinator node happens to be the owner/in replica set
+				// no need make a separate network call to put, since this is the current node just update locally
+				cache.Cache[key] = value
+				response = types.PutResponse{Ok: true, OnNode: cluster.ThisNode.Name, CacheSize: len(cache.Cache)}
+			} else {
+				response, err = client.PutWithCoordinator(key, value, node.Addr, cluster.ThisNode.Name)
+				if err != nil {
+					fmt.Printf("Error occurred in put to server %s: %v\n", node.Addr, err)
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+			}
+			if i == 0 {
+				// return the response of the owner node. this populates the OnNode and CacheSize fields with owner's values
+				res = response
+			}
 		}
 	}
 
@@ -65,9 +85,15 @@ func put(w http.ResponseWriter, req *http.Request) {
 
 }
 
+func clearCache(w http.ResponseWriter, req *http.Request) {
+	clear(cache.Cache)
+	w.WriteHeader(http.StatusOK)
+}
+
 func GetHandler() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/get", get)
 	mux.HandleFunc("/put", put)
+	mux.HandleFunc("/clear", clearCache)
 	return mux
 }

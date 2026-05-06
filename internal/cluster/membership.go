@@ -27,6 +27,7 @@ func compare(a, b *nodeAndHash) int {
 
 var ring = HashRing{[]*nodeAndHash{}}
 var ThisNode Node
+var Replicas int
 
 func PrintHashRing() {
 	for i, node := range ring.sortedRing {
@@ -44,8 +45,9 @@ func PrintHashRing() {
 	}
 }
 
-func InitHashRing(nodes []Node, thisNode Node) {
+func InitHashRing(nodes []Node, thisNode Node, replicas int) {
 	ThisNode = thisNode
+	Replicas = replicas
 	for _, node := range nodes {
 		element := nodeAndHash{Node: node, hash: hash(node.Name)}
 		fmt.Printf("computed hash %d\n", element.hash)
@@ -82,8 +84,18 @@ func binarySearchCeil(arr []*nodeAndHash, target uint64) int {
 	return result
 }
 
-func GetOwnerNode(key string) nodeAndHash {
+func GetOwnerNode(key string) Node {
 	keyHash := hash(key)
 	nodeIndex := binarySearchCeil(ring.sortedRing, keyHash)
-	return *ring.sortedRing[nodeIndex]
+	return ring.sortedRing[nodeIndex].Node
+}
+
+func GetReplicaSet(key string) []Node {
+	replicaSet := make([]Node, 0)
+	keyHash := hash(key)
+	nodeIndex := binarySearchCeil(ring.sortedRing, keyHash)
+	for i := range Replicas {
+		replicaSet = append(replicaSet, ring.sortedRing[(nodeIndex+i)%len(ring.sortedRing)].Node)
+	}
+	return replicaSet
 }

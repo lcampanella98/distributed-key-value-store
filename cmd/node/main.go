@@ -14,9 +14,14 @@ import (
 func main() {
 	nodesPtr := flag.String("nodes", "", "pass a comma separated list of node hostnames")
 	portPtr := flag.Int("port", 0, "pass a port for this node to run on")
+	replicasPtr := flag.Int("replicas", 0, "the number of total nodes including the owner on which each piece of data lives")
 	flag.Parse()
 	nodeNames := strings.Split(*nodesPtr, ",")
 	port := *portPtr
+	replicas := *replicasPtr
+	if replicas < 1 {
+		panic("Replicas must be at least 1")
+	}
 	nodes := []cluster.Node{}
 	var thisNode cluster.Node
 	for _, name := range nodeNames {
@@ -28,7 +33,7 @@ func main() {
 		}
 	}
 
-	cluster.InitHashRing(nodes, thisNode)
+	cluster.InitHashRing(nodes, thisNode, replicas)
 	cluster.PrintHashRing()
 
 	addr := fmt.Sprintf(":%d", port)

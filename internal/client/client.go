@@ -33,9 +33,14 @@ func Get(key string, addr string) (types.GetResponse, error) {
 }
 
 func Put(key string, value string, addr string) (types.PutResponse, error) {
+	return PutWithCoordinator(key, value, addr, "")
+}
+
+func PutWithCoordinator(key string, value string, addr string, coordinator string) (types.PutResponse, error) {
 	params := url.Values{}
 	params.Add("key", key)
 	params.Add("value", value)
+	params.Add("coordinator", coordinator)
 	queryString := params.Encode()
 
 	fullURL := fmt.Sprintf("%s/put?%s", addr, queryString)
@@ -53,4 +58,19 @@ func Put(key string, value string, addr string) (types.PutResponse, error) {
 	var res *types.PutResponse
 	json.NewDecoder(resp.Body).Decode(&res)
 	return *res, nil
+}
+
+func Clear(addr string) error {
+	fullURL := fmt.Sprintf("%s/clear", addr)
+	resp, err := http.Get(fullURL)
+
+	if err != nil {
+		fmt.Printf("Error in client Clear: %v\n", err)
+		return err
+	}
+	if resp.StatusCode == http.StatusInternalServerError {
+		fmt.Println("Internal server error")
+		return errors.New("internal server error on clear")
+	}
+	return nil
 }
