@@ -17,13 +17,24 @@ func main() {
 	nodesPtr := flag.String("nodes", "", "pass a comma separated list of node hostnames")
 	portPtr := flag.Int("port", 0, "pass a port for this node to run on")
 	replicasPtr := flag.Int("replicas", 0, "the number of total nodes including the owner on which each piece of data lives")
+	writeModePtr := flag.String("writeMode", "", "strict or best_effort")
+
 	flag.Parse()
+
 	nodeNames := strings.Split(*nodesPtr, ",")
 	port := *portPtr
 	replicas := *replicasPtr
+	writeMode := *writeModePtr
+
 	if replicas < 1 {
-		panic("Replicas must be at least 1")
+		panic("Replicas must be at least 1. Remember replicas includes the primary")
 	}
+	if replicas > len(nodeNames) {
+		panic("Replicas must not exceed the number of total nodes")
+	}
+
+	cluster.SetCoordinatorConfig(writeMode)
+
 	nodes := []cluster.Node{}
 	var thisNode cluster.Node
 	for _, name := range nodeNames {
