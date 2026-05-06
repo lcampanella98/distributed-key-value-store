@@ -38,6 +38,12 @@ func get(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
+type putInReplicaResult struct {
+	i   int
+	res types.PutResponse
+	err error
+}
+
 func put(w http.ResponseWriter, req *http.Request) {
 	q := req.URL.Query()
 	key := q.Get("key")
@@ -52,32 +58,45 @@ func put(w http.ResponseWriter, req *http.Request) {
 		return node.Name == cluster.ThisNode.Name
 	})
 
+	putInReplica := func(i int, node cluster.Node, results chan<- putInReplicaResult) {
+		response, err := client.PutWithCoordinator(key, value, node.Addr, cluster.ThisNode.Name)
+		results <- putInReplicaResult{i: i, res: response, err: err}
+	}
+
 	if !isCoordinator && thisNodeIndex != -1 {
 		// this node is owner or replica, and not the coordinator, so only put into this node's cache
 		cache.Cache[key] = value
 		res = types.PutResponse{Ok: true, OnNode: cluster.ThisNode.Name, CacheSize: len(cache.Cache)}
 	} else if isCoordinator {
+		results := make(chan putInReplicaResult, len(ownerAndReplicas))
+		numCalls := 0
 		for i, node := range ownerAndReplicas {
-			var response types.PutResponse
-			var err error
 			if i == thisNodeIndex {
 				// coordinator node happens to be the owner/in replica set
 				// no need make a separate network call to put, since this is the current node just update locally
 				cache.Cache[key] = value
-				response = types.PutResponse{Ok: true, OnNode: cluster.ThisNode.Name, CacheSize: len(cache.Cache)}
-			} else {
-				response, err = client.PutWithCoordinator(key, value, node.Addr, cluster.ThisNode.Name)
-				if err != nil {
-					fmt.Printf("Error occurred in put to server %s: %v\n", node.Addr, err)
-					w.WriteHeader(http.StatusInternalServerError)
-					return
+				response := types.PutResponse{Ok: true, OnNode: cluster.ThisNode.Name, CacheSize: len(cache.Cache)}
+				if i == 0 {
+					res = response
 				}
-			}
-			if i == 0 {
-				// return the response of the owner node. this populates the OnNode and CacheSize fields with owner's values
-				res = response
+			} else {
+				go putInReplica(i, node, results)
+				numCalls++
 			}
 		}
+
+		for range numCalls {
+			result := <-results
+			if result.err != nil {
+				fmt.Printf("Error occurred in put to server %s: %v\n", ownerAndReplicas[result.i].Addr, result.err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			if result.i == 0 {
+				res = result.res
+			}
+		}
+		close(results)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

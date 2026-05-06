@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/lcampanella98/distributed-key-value-store/internal/types"
 )
+
+var client = http.Client{Timeout: 1 * time.Second}
 
 func Get(key string, addr string) (types.GetResponse, error) {
 	params := url.Values{}
@@ -16,7 +19,7 @@ func Get(key string, addr string) (types.GetResponse, error) {
 	queryString := params.Encode()
 
 	fullURL := fmt.Sprintf("%s/get?%s", addr, queryString)
-	resp, err := http.Get(fullURL)
+	resp, err := client.Get(fullURL)
 
 	if err != nil {
 		fmt.Printf("Error in client Get: %v\n", err)
@@ -44,7 +47,7 @@ func PutWithCoordinator(key string, value string, addr string, coordinator strin
 	queryString := params.Encode()
 
 	fullURL := fmt.Sprintf("%s/put?%s", addr, queryString)
-	resp, err := http.Get(fullURL)
+	resp, err := client.Get(fullURL)
 
 	if err != nil {
 		fmt.Printf("Error in client Put: %v\n", err)
@@ -62,7 +65,7 @@ func PutWithCoordinator(key string, value string, addr string, coordinator strin
 
 func Clear(addr string) error {
 	fullURL := fmt.Sprintf("%s/clear", addr)
-	resp, err := http.Get(fullURL)
+	resp, err := client.Get(fullURL)
 
 	if err != nil {
 		fmt.Printf("Error in client Clear: %v\n", err)

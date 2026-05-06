@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/lcampanella98/distributed-key-value-store/internal/api"
+	"github.com/lcampanella98/distributed-key-value-store/internal/benchmarks"
 	"github.com/lcampanella98/distributed-key-value-store/internal/cluster"
 )
 
@@ -41,6 +42,9 @@ func main() {
 		Addr:    addr,
 		Handler: api.GetHandler(),
 	}
+	fmt.Println("starting benchmarks...")
+	benchmarks.StartBenchmarks()
+
 	fmt.Println("serving...")
 
 	srv.ListenAndServe()
