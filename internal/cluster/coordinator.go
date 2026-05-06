@@ -53,12 +53,16 @@ func CoordinatorPut(key, value string, replicaSet []Node, myIndexInReplicaSet in
 			numRoutines++
 		}
 	}
+	var primaryError error = nil
 	var errs []error
 	for range numRoutines {
 		result := <-results
 		if result.err != nil {
 			fmt.Printf("Error occurred in put to server %s: %v\n", replicaSet[result.i].Addr, result.err)
 			errs = append(errs, result.err)
+			if result.i == 0 {
+				primaryError = result.err
+			}
 		}
 		if result.i == 0 {
 			res = result.res
@@ -66,9 +70,21 @@ func CoordinatorPut(key, value string, replicaSet []Node, myIndexInReplicaSet in
 	}
 	close(results)
 
-	if len(errs) > 0 {
-		return res, errs[0]
-	} else {
-		return res, nil
+	switch config.writeMode {
+	case "strict":
+		if len(errs) > 0 {
+			return res, errs[0]
+		} else {
+			return res, nil
+		}
+	case "best_effort":
+		if primaryError != nil {
+			return res, primaryError
+		} else {
+			return res, nil
+		}
+	default:
+		panic("Couldn't match write mode " + config.writeMode)
 	}
+
 }

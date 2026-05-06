@@ -11,7 +11,7 @@ func main() {
 	client.Init(false)
 
 	start := time.Now()
-	TestParallelWrites()
+	TestErrorStatistics()
 	elapsed := time.Since(start)
 	fmt.Printf("Execution took %s\n", elapsed)
 }

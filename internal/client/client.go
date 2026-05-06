@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -78,9 +79,20 @@ func PutWithCoordinator(key string, value string, addr string, coordinator strin
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusInternalServerError {
-		fmt.Println("Internal server error")
-		return types.PutResponse{}, errors.New("internal server error on put")
+	if resp.StatusCode == http.StatusInternalServerError || resp.StatusCode == http.StatusBadRequest {
+		fmt.Printf("Unsuccessful put: %s\n", resp.Status)
+		bodyBytes, err := io.ReadAll(resp.Body)
+		var errorText string = resp.Status + " Reason: "
+		if err != nil {
+			fmt.Println("Could not read error body:", err)
+			errorText += "(Could not read error body)"
+		} else {
+			errorText += string(bodyBytes)
+		}
+
+		fmt.Println(errorText)
+
+		return types.PutResponse{}, errors.New(errorText)
 	}
 	var res *types.PutResponse
 	json.NewDecoder(resp.Body).Decode(&res)

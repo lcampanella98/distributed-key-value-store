@@ -48,6 +48,7 @@ func put(w http.ResponseWriter, req *http.Request) {
 
 	var res types.PutResponse
 	replicaSet := cluster.GetReplicaSet(key)
+
 	myIndexInReplicaSet := slices.IndexFunc(replicaSet, func(node cluster.Node) bool {
 		return node.Name == cluster.ThisNode.Name
 	})
@@ -63,6 +64,9 @@ func put(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		res = response
+	} else {
+		http.Error(w, "This node is not coordinator and is not in replica set", http.StatusBadRequest)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
