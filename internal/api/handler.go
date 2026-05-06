@@ -21,15 +21,15 @@ func get(w http.ResponseWriter, req *http.Request) {
 	ownerNode := cluster.GetOwnerNode(key)
 	if ownerNode.Name == cluster.ThisNode.Name {
 		// fmt.Printf("this node owns key %s\n", key)
-		value, ok := cache.Cache[key]
-		res = types.GetResponse{Value: value, Exists: ok, OnNode: ownerNode.Name, CacheSize: len(cache.Cache)}
+		value, ok := cache.Get(key)
+		res = types.GetResponse{Value: value, Exists: ok, OnNode: ownerNode.Name, CacheSize: cache.Size()}
 	} else {
 		// fmt.Printf("node %s owns key %s\n", ownerNode.Name, key)
 		var err error
 		res, err = client.Get(key, ownerNode.Addr)
 		if err != nil {
 			fmt.Printf("Error occurred in get: %v\n", err)
-			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -65,38 +65,43 @@ func put(w http.ResponseWriter, req *http.Request) {
 
 	if !isCoordinator && thisNodeIndex != -1 {
 		// this node is owner or replica, and not the coordinator, so only put into this node's cache
-		cache.Cache[key] = value
-		res = types.PutResponse{Ok: true, OnNode: cluster.ThisNode.Name, CacheSize: len(cache.Cache)}
+		cache.Put(key, value)
+		res = types.PutResponse{Ok: true, OnNode: cluster.ThisNode.Name, CacheSize: cache.Size()}
 	} else if isCoordinator {
 		results := make(chan putInReplicaResult, len(ownerAndReplicas))
-		numCalls := 0
+		numRoutines := 0
 		for i, node := range ownerAndReplicas {
 			if i == thisNodeIndex {
 				// coordinator node happens to be the owner/in replica set
 				// no need make a separate network call to put, since this is the current node just update locally
-				cache.Cache[key] = value
-				response := types.PutResponse{Ok: true, OnNode: cluster.ThisNode.Name, CacheSize: len(cache.Cache)}
+				cache.Put(key, value)
+				response := types.PutResponse{Ok: true, OnNode: cluster.ThisNode.Name, CacheSize: cache.Size()}
 				if i == 0 {
 					res = response
 				}
 			} else {
 				go putInReplica(i, node, results)
-				numCalls++
+				numRoutines++
 			}
 		}
-
-		for range numCalls {
+		var errs []error
+		for range numRoutines {
 			result := <-results
 			if result.err != nil {
 				fmt.Printf("Error occurred in put to server %s: %v\n", ownerAndReplicas[result.i].Addr, result.err)
-				w.WriteHeader(http.StatusInternalServerError)
-				return
+				errs = append(errs, result.err)
 			}
 			if result.i == 0 {
 				res = result.res
 			}
 		}
 		close(results)
+
+		if len(errs) > 0 {
+			// send the first error to client
+			http.Error(w, errs[0].Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -105,7 +110,7 @@ func put(w http.ResponseWriter, req *http.Request) {
 }
 
 func clearCache(w http.ResponseWriter, req *http.Request) {
-	clear(cache.Cache)
+	cache.Clear()
 	w.WriteHeader(http.StatusOK)
 }
 

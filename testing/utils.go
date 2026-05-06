@@ -2,17 +2,15 @@ package main
 
 import (
 	"math/rand"
-	"time"
 )
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-var r = rand.New(rand.NewSource(time.Now().UnixNano()))
+const lenCharset = len(charset)
 
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = charset[r.Intn(len(charset))]
+		b[i] = charset[rand.Intn(lenCharset)]
 	}
 	return string(b)
 }

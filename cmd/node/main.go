@@ -9,6 +9,7 @@ import (
 
 	"github.com/lcampanella98/distributed-key-value-store/internal/api"
 	"github.com/lcampanella98/distributed-key-value-store/internal/benchmarks"
+	"github.com/lcampanella98/distributed-key-value-store/internal/client"
 	"github.com/lcampanella98/distributed-key-value-store/internal/cluster"
 )
 
@@ -37,11 +38,13 @@ func main() {
 	cluster.InitHashRing(nodes, thisNode, replicas)
 	cluster.PrintHashRing()
 
-	addr := fmt.Sprintf(":%d", port)
+	addr := fmt.Sprintf("localhost:%d", port)
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: api.GetHandler(),
 	}
+	fmt.Println("initializing internal client...")
+	client.Init(true)
 	fmt.Println("starting benchmarks...")
 	benchmarks.StartBenchmarks()
 

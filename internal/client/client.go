@@ -11,7 +11,29 @@ import (
 	"github.com/lcampanella98/distributed-key-value-store/internal/types"
 )
 
-var client = http.Client{Timeout: 1 * time.Second}
+var client *http.Client
+
+func Init(isInternal bool) {
+	if isInternal {
+		tr := &http.Transport{
+			MaxIdleConns:        1000,
+			MaxIdleConnsPerHost: 1000,
+		}
+		client = &http.Client{
+			Transport: tr,
+			Timeout:   500 * time.Millisecond,
+		}
+	} else {
+		tr := &http.Transport{
+			MaxIdleConns:        100,
+			MaxIdleConnsPerHost: 100,
+		}
+		client = &http.Client{
+			Transport: tr,
+			Timeout:   2 * time.Second,
+		}
+	}
+}
 
 func Get(key string, addr string) (types.GetResponse, error) {
 	params := url.Values{}
@@ -25,11 +47,12 @@ func Get(key string, addr string) (types.GetResponse, error) {
 		fmt.Printf("Error in client Get: %v\n", err)
 		return types.GetResponse{}, err
 	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode == http.StatusInternalServerError {
 		fmt.Println("Internal server error")
 		return types.GetResponse{}, errors.New("internal server error on get")
 	}
-	defer resp.Body.Close()
 	var res *types.GetResponse
 	json.NewDecoder(resp.Body).Decode(&res)
 	return *res, nil
@@ -53,11 +76,12 @@ func PutWithCoordinator(key string, value string, addr string, coordinator strin
 		fmt.Printf("Error in client Put: %v\n", err)
 		return types.PutResponse{}, err
 	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode == http.StatusInternalServerError {
 		fmt.Println("Internal server error")
 		return types.PutResponse{}, errors.New("internal server error on put")
 	}
-	defer resp.Body.Close()
 	var res *types.PutResponse
 	json.NewDecoder(resp.Body).Decode(&res)
 	return *res, nil
@@ -71,6 +95,8 @@ func Clear(addr string) error {
 		fmt.Printf("Error in client Clear: %v\n", err)
 		return err
 	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode == http.StatusInternalServerError {
 		fmt.Println("Internal server error")
 		return errors.New("internal server error on clear")

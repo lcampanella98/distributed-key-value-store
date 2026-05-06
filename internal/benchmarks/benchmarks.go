@@ -8,7 +8,7 @@ import (
 )
 
 func printAllBenchmarks() {
-	fmt.Printf("Cache keys: %v\n", len(cache.Cache))
+	fmt.Printf("Cache Size: %v\n", cache.Size())
 }
 
 func StartBenchmarks() {
