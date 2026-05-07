@@ -45,9 +45,8 @@ func main() {
 			thisNode = node
 		}
 	}
-	fmt.Println("initializing hash ring...")
-	cluster.InitHashRing(nodes, thisNode, replicas)
-	cluster.PrintHashRing()
+	fmt.Println("initializing hash ring and membership...")
+	cluster.InitMembership(nodes, thisNode, replicas)
 	fmt.Println("initializing internal client...")
 	client.Init(true)
 	fmt.Println("starting health checks...")

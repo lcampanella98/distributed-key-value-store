@@ -18,7 +18,7 @@ func get(w http.ResponseWriter, req *http.Request) {
 	key := q.Get("key")
 	// fmt.Println("Get " + key)
 	var res types.GetResponse
-	ownerNode := cluster.GetOwnerNode(key)
+	ownerNode := cluster.Ring.GetOwnerNode(key)
 	if ownerNode.Name == cluster.ThisNode.Name {
 		// fmt.Printf("this node owns key %s\n", key)
 		value, ok := cache.Get(key)
@@ -47,7 +47,7 @@ func put(w http.ResponseWriter, req *http.Request) {
 	// fmt.Println("Put " + key + "=" + value)
 
 	var res types.PutResponse
-	replicaSet := cluster.GetReplicaSet(key)
+	replicaSet := cluster.Ring.GetReplicaSet(key)
 
 	myIndexInReplicaSet := slices.IndexFunc(replicaSet, func(node cluster.Node) bool {
 		return node.Name == cluster.ThisNode.Name

@@ -15,7 +15,7 @@ func StartBenchmarks() {
 	go func() {
 		ticker := time.NewTicker(time.Second * 5)
 		for range ticker.C {
-			printAllBenchmarks()
+			// printAllBenchmarks()
 		}
 	}()
 }

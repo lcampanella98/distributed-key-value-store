@@ -13,14 +13,14 @@ type NodeStatus struct {
 	LastSeen time.Time
 }
 
-var nodeStatuses = make(map[string]NodeStatus)
+var nodeStatuses = make(map[string]*NodeStatus)
 
 var durationBeforeDead time.Duration = time.Second * 8
 
 func StartHealthChecks(allNodes []Node) {
 	var peerNodes []Node
 	for _, node := range allNodes {
-		nodeStatuses[node.Name] = NodeStatus{
+		nodeStatuses[node.Name] = &NodeStatus{
 			Node:     node,
 			Alive:    true,
 			LastSeen: time.Now(),
@@ -37,8 +37,7 @@ func StartHealthChecks(allNodes []Node) {
 			changed := healthCheckPeers(peerNodes)
 			if changed {
 				fmt.Println("Rebuilding hash ring...")
-				rebuildHashRing(nodeStatuses)
-				PrintHashRing()
+				rebuildHashRingWithNodes(getAliveNodes())
 			}
 		}
 	}()
@@ -47,6 +46,16 @@ func StartHealthChecks(allNodes []Node) {
 type healthCheckResult struct {
 	node Node
 	ok   bool
+}
+
+func getAliveNodes() []Node {
+	var aliveNodes []Node
+	for _, status := range nodeStatuses {
+		if status.Alive {
+			aliveNodes = append(aliveNodes, status.Node)
+		}
+	}
+	return aliveNodes
 }
 
 func healthCheckPeers(peers []Node) bool {
