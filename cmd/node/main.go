@@ -45,22 +45,22 @@ func main() {
 			thisNode = node
 		}
 	}
-
+	fmt.Println("initializing hash ring...")
 	cluster.InitHashRing(nodes, thisNode, replicas)
 	cluster.PrintHashRing()
+	fmt.Println("initializing internal client...")
+	client.Init(true)
+	fmt.Println("starting health checks...")
+	cluster.StartHealthChecks(nodes)
+	fmt.Println("starting benchmarks...")
+	benchmarks.StartBenchmarks()
 
 	addr := fmt.Sprintf("localhost:%d", port)
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: api.GetHandler(),
 	}
-	fmt.Println("initializing internal client...")
-	client.Init(true)
-	fmt.Println("starting benchmarks...")
-	benchmarks.StartBenchmarks()
-
 	fmt.Println("serving...")
-
 	srv.ListenAndServe()
 
 }

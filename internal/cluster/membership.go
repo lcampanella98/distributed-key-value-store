@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"sync"
 )
 
 type Node struct {
@@ -18,6 +19,7 @@ type nodeAndHash struct {
 }
 
 type HashRing struct {
+	mu         sync.RWMutex
 	sortedRing []*nodeAndHash
 }
 
@@ -25,7 +27,7 @@ func compare(a, b *nodeAndHash) int {
 	return cmp.Compare(a.hash, b.hash)
 }
 
-var ring = HashRing{[]*nodeAndHash{}}
+var ring = HashRing{}
 var ThisNode Node
 var Replicas int
 
@@ -56,20 +58,35 @@ func InitHashRing(nodes []Node, thisNode Node, replicas int) {
 	slices.SortFunc(ring.sortedRing, compare)
 }
 
+func rebuildHashRing() {
+	newRing := make([]*nodeAndHash, 0)
+	for _, status := range nodeStatuses {
+		if !status.Alive {
+			continue
+		}
+		element := nodeAndHash{Node: status.Node, hash: hash(status.Node.Name)}
+		newRing = append(newRing, &element)
+	}
+	slices.SortFunc(newRing, compare)
+	ring.mu.Lock()
+	defer ring.mu.Unlock()
+	ring.sortedRing = newRing
+}
+
 // BinarySearchCeil returns the index of the first element >= target.
 // If target is greater than all elements, it wraps around and returns 0.
-func binarySearchCeil(arr []*nodeAndHash, target uint64) int {
-	if len(arr) == 0 {
+func (h *HashRing) binarySearchCeil(keyHash uint64) int {
+	if len(h.sortedRing) == 0 {
 		return -1 // handle empty array
 	}
 
-	lo, hi := 0, len(arr)-1
+	lo, hi := 0, len(h.sortedRing)-1
 	result := -1 // will hold the best candidate index
 
 	for lo <= hi {
 		mid := lo + (hi-lo)/2
 
-		if arr[mid].hash >= target {
+		if h.sortedRing[mid].hash >= keyHash {
 			result = mid // mid is a valid candidate (>= target)
 			hi = mid - 1 // try to find an earlier one
 		} else {
@@ -86,16 +103,21 @@ func binarySearchCeil(arr []*nodeAndHash, target uint64) int {
 
 func GetOwnerNode(key string) Node {
 	keyHash := hash(key)
-	nodeIndex := binarySearchCeil(ring.sortedRing, keyHash)
-	return ring.sortedRing[nodeIndex].Node
+	ring.mu.RLock()
+	defer ring.mu.RUnlock()
+	primaryIndex := ring.binarySearchCeil(keyHash)
+	return ring.sortedRing[primaryIndex].Node
 }
 
 func GetReplicaSet(key string) []Node {
 	replicaSet := make([]Node, 0)
 	keyHash := hash(key)
-	nodeIndex := binarySearchCeil(ring.sortedRing, keyHash)
-	for i := range Replicas {
-		replicaSet = append(replicaSet, ring.sortedRing[(nodeIndex+i)%len(ring.sortedRing)].Node)
+	ring.mu.RLock()
+	defer ring.mu.RUnlock()
+	primaryIndex := ring.binarySearchCeil(keyHash)
+	effectiveReplicas := min(Replicas, len(ring.sortedRing))
+	for i := range effectiveReplicas {
+		replicaSet = append(replicaSet, ring.sortedRing[(primaryIndex+i)%len(ring.sortedRing)].Node)
 	}
 	return replicaSet
 }

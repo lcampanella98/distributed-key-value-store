@@ -80,10 +80,15 @@ func clearCache(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func health(w http.ResponseWriter, req *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
+
 func GetHandler() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/get", get)
 	mux.HandleFunc("/put", put)
 	mux.HandleFunc("/clear", clearCache)
+	mux.HandleFunc("/health", health)
 	return mux
 }
