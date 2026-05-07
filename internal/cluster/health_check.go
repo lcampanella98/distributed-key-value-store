@@ -13,33 +13,33 @@ type NodeStatus struct {
 	LastSeen time.Time
 }
 
-var nodeStatuses = make(map[string]*NodeStatus)
+var nodeStatuses = make(map[string]NodeStatus)
 
 var durationBeforeDead time.Duration = time.Second * 8
 
 func StartHealthChecks(allNodes []Node) {
+	var peerNodes []Node
 	for _, node := range allNodes {
-		nodeStatuses[node.Name] = &NodeStatus{
+		nodeStatuses[node.Name] = NodeStatus{
 			Node:     node,
 			Alive:    true,
 			LastSeen: time.Now(),
 		}
+		// don't run health check on this node, only on other nodes. this node's nodeStatus.Alive will always be true
+		if node.Name != ThisNode.Name {
+			peerNodes = append(peerNodes, node)
+		}
 	}
 
 	go func() {
-		peerNodes := make([]Node, 0)
-		for _, node := range allNodes {
-			if node.Name != ThisNode.Name {
-				peerNodes = append(peerNodes, node)
-			}
-		}
 		for {
+			time.Sleep(4 * time.Second)
 			changed := healthCheckPeers(peerNodes)
 			if changed {
 				fmt.Println("Rebuilding hash ring...")
-				rebuildHashRing()
+				rebuildHashRing(nodeStatuses)
+				PrintHashRing()
 			}
-			time.Sleep(4 * time.Second)
 		}
 	}()
 }

@@ -20,10 +20,10 @@ type nodeAndHash struct {
 
 type HashRing struct {
 	mu         sync.RWMutex
-	sortedRing []*nodeAndHash
+	sortedRing []nodeAndHash
 }
 
-func compare(a, b *nodeAndHash) int {
+func compare(a, b nodeAndHash) int {
 	return cmp.Compare(a.hash, b.hash)
 }
 
@@ -32,8 +32,11 @@ var ThisNode Node
 var Replicas int
 
 func PrintHashRing() {
+	ring.mu.RLock()
+	defer ring.mu.RUnlock()
+	fmt.Println("=== Hash Ring ===")
 	for i, node := range ring.sortedRing {
-		var prevNode *nodeAndHash
+		var prevNode nodeAndHash
 		var diff uint64
 		if i == 0 {
 			prevNode = ring.sortedRing[len(ring.sortedRing)-1]
@@ -48,24 +51,25 @@ func PrintHashRing() {
 }
 
 func InitHashRing(nodes []Node, thisNode Node, replicas int) {
+	ring.mu.Lock()
+	defer ring.mu.Unlock()
 	ThisNode = thisNode
 	Replicas = replicas
 	for _, node := range nodes {
 		element := nodeAndHash{Node: node, hash: hash(node.Name)}
-		fmt.Printf("computed hash %d\n", element.hash)
-		ring.sortedRing = append(ring.sortedRing, &element)
+		ring.sortedRing = append(ring.sortedRing, element)
 	}
 	slices.SortFunc(ring.sortedRing, compare)
 }
 
-func rebuildHashRing() {
-	newRing := make([]*nodeAndHash, 0)
+func rebuildHashRing(nodeStatuses map[string]NodeStatus) {
+	newRing := make([]nodeAndHash, 0)
 	for _, status := range nodeStatuses {
 		if !status.Alive {
 			continue
 		}
 		element := nodeAndHash{Node: status.Node, hash: hash(status.Node.Name)}
-		newRing = append(newRing, &element)
+		newRing = append(newRing, element)
 	}
 	slices.SortFunc(newRing, compare)
 	ring.mu.Lock()
@@ -115,6 +119,7 @@ func GetReplicaSet(key string) []Node {
 	ring.mu.RLock()
 	defer ring.mu.RUnlock()
 	primaryIndex := ring.binarySearchCeil(keyHash)
+	// calculate effective replicas. if too many nodes have gone dead, we can only have at most the number of alive nodes as the number of replicas
 	effectiveReplicas := min(Replicas, len(ring.sortedRing))
 	for i := range effectiveReplicas {
 		replicaSet = append(replicaSet, ring.sortedRing[(primaryIndex+i)%len(ring.sortedRing)].Node)

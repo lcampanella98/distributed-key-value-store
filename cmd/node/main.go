@@ -35,7 +35,7 @@ func main() {
 
 	cluster.SetCoordinatorConfig(writeMode)
 
-	nodes := []cluster.Node{}
+	var nodes []cluster.Node
 	var thisNode cluster.Node
 	for _, name := range nodeNames {
 		node := cluster.Node{Name: name, Addr: "http://" + name}
