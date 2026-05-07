@@ -1,7 +1,7 @@
 ### Test Objective
 * Test strict write mode vs best_effort write mode
 * strict write mode chooses consistency over availability, where successful puts require successful responses from all replicas
-* best_effort write mode chooses availability over consistency, where successful puts only require that the primary succeeded
+* best_effort write mode chooses availability over consistency, where successful puts only require that the primary succeeded. In best-effort mode, the coordinator may return an error even if writes succeeded on a subset of replicas
 
 ### Test setup for each mode
 * run 3 nodes and replication factor of 3 (all nodes on the hash ring store a copy of the data)
