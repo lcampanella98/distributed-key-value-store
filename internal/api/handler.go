@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"slices"
 
 	"encoding/json"
@@ -84,11 +85,19 @@ func health(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// kills the current node immediately. useful for testing purposes
+func kill(w http.ResponseWriter, req *http.Request) {
+	fmt.Println("Killing this node on client request")
+	w.WriteHeader(http.StatusOK)
+	os.Exit(0)
+}
+
 func GetHandler() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/get", get)
 	mux.HandleFunc("/put", put)
 	mux.HandleFunc("/clear", clearCache)
 	mux.HandleFunc("/health", health)
+	mux.HandleFunc("/kill", kill)
 	return mux
 }

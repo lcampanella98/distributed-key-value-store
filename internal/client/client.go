@@ -133,3 +133,21 @@ func Health(addr string) error {
 	return nil
 
 }
+
+func Kill(addr string) error {
+	fullURL := fmt.Sprintf("%s/kill", addr)
+	resp, err := client.Get(fullURL)
+
+	if err != nil {
+		fmt.Printf("Kill node error for node at %s: %v\n", addr, err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("Kill node failed for node at %s: %v\n", addr, resp.Status)
+		return errors.New("Kill node failed: " + resp.Status)
+	}
+	return nil
+
+}
