@@ -67,24 +67,44 @@ func TestKillNode() {
 
 	// step 2: kill a node (that's not the coordinator)
 	client.Kill(addr[killIdx])
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
-	putErrsDegraded, getErrsDegraded, getWrongValueDegraded := 0, 0, 0
+	putErrsDegradedPreDetected, getErrsDegradedPreDetected, getWrongValueDegradedPreDetected := 0, 0, 0
 	// step 2a: read and compare M1
 	for k, v := range m1 {
-		doGet(address, k, v, &getErrsDegraded, &getWrongValueDegraded)
+		doGet(address, k, v, &getErrsDegradedPreDetected, &getWrongValueDegradedPreDetected)
 	}
 	// step 2b: put new random values
 	m2 := make(map[string]string)
 	for range keysPerStep {
-		doPutRandomPair(address, &m2, &putErrsDegraded)
+		doPutRandomPair(address, &m2, &putErrsDegradedPreDetected)
 	}
 
 	// step 3: recovered cluster
 	// step 3a: wait for failure detection to kick in
+	fmt.Printf("Waiting %v for failure detection\n", waitForFailureDetection)
 	time.Sleep(waitForFailureDetection)
 
 	// step 3b: read from M1
+	getErrsDegradedPostDetectedM1, getWrongValueDegradedPostDetectedM1 := 0, 0
+	for k, v := range m1 {
+		doGet(address, k, v, &getErrsDegradedPostDetectedM1, &getWrongValueDegradedPostDetectedM1)
+	}
+	getErrsDegradedPostDetectedM2, getWrongValueDegradedPostDetectedM2 := 0, 0
+	for k, v := range m2 {
+		doGet(address, k, v, &getErrsDegradedPostDetectedM2, &getWrongValueDegradedPostDetectedM2)
+	}
+	putErrsDegradedPostDetected := 0
+	m3 := make(map[string]string) // unused
+	for range keysPerStep {
+		doPutRandomPair(address, &m3, &putErrsDegradedPostDetected)
+	}
+
+	// step 4: restart dead node and have it rejoin cluster
+	fmt.Println("Waiting 20 seconds for you to restart dead node")
+	time.Sleep(20 * time.Second)
+
+	// step 4a: read from M1
 	getErrsRecoveredM1, getWrongValueRecoveredM1 := 0, 0
 	for k, v := range m1 {
 		doGet(address, k, v, &getErrsRecoveredM1, &getWrongValueRecoveredM1)
@@ -93,27 +113,35 @@ func TestKillNode() {
 	for k, v := range m2 {
 		doGet(address, k, v, &getErrsRecoveredM2, &getWrongValueRecoveredM2)
 	}
-	putErrsRecovered := 0
-	m3 := make(map[string]string) // unused
-	for range keysPerStep {
-		doPutRandomPair(address, &m3, &putErrsRecovered)
+	getErrsRecoveredM3, getWrongValueRecoveredM3 := 0, 0
+	for k, v := range m3 {
+		doGet(address, k, v, &getErrsRecoveredM3, &getWrongValueRecoveredM3)
 	}
+
 	fmt.Println("=== HEALTHY CLUSTER ===")
 	fmt.Printf("%.2f%% of puts errored\n", float64(putErrsHealthy)/float64(keysPerStep)*100)
 	fmt.Printf("%.2f%% of gets from M1 errored\n", float64(getErrsHealthy)/float64(keysPerStep)*100)
 	fmt.Printf("%.2f%% of gets from M1 returned incorrect value\n", float64(getWrongValueHealthy)/float64(keysPerStep)*100)
 
-	fmt.Println("=== DEGRADED CLUSTER (pre-failure detection) ===")
-	fmt.Printf("%.2f%% of gets from M1 errored\n", float64(getErrsDegraded)/float64(keysPerStep)*100)
-	fmt.Printf("%.2f%% of gets from M1 returned incorrect value\n", float64(getWrongValueDegraded)/float64(keysPerStep)*100)
-	fmt.Printf("%.2f%% of puts errored\n", float64(putErrsDegraded)/float64(keysPerStep)*100)
+	fmt.Println("=== DEGRADED CLUSTER (PRE-failure detection) ===")
+	fmt.Printf("%.2f%% of gets from M1 errored\n", float64(getErrsDegradedPreDetected)/float64(keysPerStep)*100)
+	fmt.Printf("%.2f%% of gets from M1 returned incorrect value\n", float64(getWrongValueDegradedPreDetected)/float64(keysPerStep)*100)
+	fmt.Printf("%.2f%% of puts errored\n", float64(putErrsDegradedPreDetected)/float64(keysPerStep)*100)
 
-	fmt.Println("=== RECOVERED CLUSTER (post-failure detection) ===")
+	fmt.Println("=== DEGRADED CLUSTER (POST-failure detected) ===")
+	fmt.Printf("%.2f%% of gets from M1 errored\n", float64(getErrsDegradedPostDetectedM1)/float64(keysPerStep)*100)
+	fmt.Printf("%.2f%% of gets from M1 returned incorrect value\n", float64(getWrongValueDegradedPostDetectedM1)/float64(keysPerStep)*100)
+	fmt.Printf("%.2f%% of gets from M2 errored\n", float64(getErrsDegradedPostDetectedM2)/float64(keysPerStep)*100)
+	fmt.Printf("%.2f%% of gets from M2 returned incorrect value\n", float64(getWrongValueDegradedPostDetectedM2)/float64(keysPerStep)*100)
+	fmt.Printf("%.2f%% of puts errored\n", float64(putErrsDegradedPostDetected)/float64(keysPerStep)*100)
+
+	fmt.Println("=== RECOVERED CLUSTER (Dead node back online) ===")
 	fmt.Printf("%.2f%% of gets from M1 errored\n", float64(getErrsRecoveredM1)/float64(keysPerStep)*100)
 	fmt.Printf("%.2f%% of gets from M1 returned incorrect value\n", float64(getWrongValueRecoveredM1)/float64(keysPerStep)*100)
 	fmt.Printf("%.2f%% of gets from M2 errored\n", float64(getErrsRecoveredM2)/float64(keysPerStep)*100)
 	fmt.Printf("%.2f%% of gets from M2 returned incorrect value\n", float64(getWrongValueRecoveredM2)/float64(keysPerStep)*100)
-	fmt.Printf("%.2f%% of puts errored\n", float64(putErrsRecovered)/float64(keysPerStep)*100)
+	fmt.Printf("%.2f%% of gets from M3 errored\n", float64(getErrsRecoveredM3)/float64(keysPerStep)*100)
+	fmt.Printf("%.2f%% of gets from M3 returned incorrect value\n", float64(getWrongValueRecoveredM3)/float64(keysPerStep)*100)
 
 	fmt.Println("finished")
 }

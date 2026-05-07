@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"time"
 
 	"encoding/json"
 
@@ -89,7 +90,10 @@ func health(w http.ResponseWriter, req *http.Request) {
 func kill(w http.ResponseWriter, req *http.Request) {
 	fmt.Println("Killing this node on client request")
 	w.WriteHeader(http.StatusOK)
-	os.Exit(0)
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		os.Exit(0)
+	}()
 }
 
 func GetHandler() *http.ServeMux {
