@@ -8,7 +8,7 @@ import (
 )
 
 func TestKillNode() {
-	fmt.Println("Testing killing a node")
+	fmt.Println("Testing failure and recovery")
 	addr := []string{"http://localhost:8080", "http://localhost:8081", "http://localhost:8082"}
 	coordinatorIdx := 0
 	killIdx := 2

@@ -6,8 +6,8 @@ import (
 	"github.com/lcampanella98/distributed-key-value-store/internal/client"
 )
 
-func TestParallelWrites() {
-	fmt.Println("Testing Parallel writes")
+func TestHighConcurrency() {
+	fmt.Println("Testing High Concurrency")
 	addr := []string{"http://localhost:8080", "http://localhost:8081", "http://localhost:8082"}
 	addrIdx := 0
 
