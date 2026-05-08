@@ -39,6 +39,14 @@ func TestIsInRange(t *testing.T) {
 			expectedEnd:       500,
 		},
 		{
+			name:              "2 nodes, 3 replicas, target node not in ring",
+			sortedRingHashes:  []uint64{100, 1000},
+			replicationFactor: 3,
+			nodeHash:          500,
+			expectedStart:     500,
+			expectedEnd:       500,
+		},
+		{
 			name:              "3 nodes, 2 replicas, target node in ring",
 			sortedRingHashes:  []uint64{100, 1000, 10000},
 			replicationFactor: 2,

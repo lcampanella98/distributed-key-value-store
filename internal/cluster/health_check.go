@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/lcampanella98/distributed-key-value-store/internal/client"
+	"github.com/lcampanella98/distributed-key-value-store/internal/mymetrics"
 )
 
 type NodeStatus struct {
@@ -36,8 +37,10 @@ func StartHealthChecks(allNodes []Node) {
 			time.Sleep(4 * time.Second)
 			changed := healthCheckPeers(peerNodes)
 			if changed {
+				aliveNodes := GetAliveNodes()
+				mymetrics.M.SetAliveNodes(int64(len(aliveNodes)))
 				fmt.Println("Rebuilding hash ring...")
-				rebuildHashRingWithNodes(GetAliveNodes())
+				rebuildHashRingWithNodes(aliveNodes)
 			}
 		}
 	}()

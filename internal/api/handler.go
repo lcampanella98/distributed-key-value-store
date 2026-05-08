@@ -12,6 +12,7 @@ import (
 	"github.com/lcampanella98/distributed-key-value-store/internal/cache"
 	"github.com/lcampanella98/distributed-key-value-store/internal/client"
 	"github.com/lcampanella98/distributed-key-value-store/internal/cluster"
+	"github.com/lcampanella98/distributed-key-value-store/internal/mymetrics"
 	"github.com/lcampanella98/distributed-key-value-store/internal/types"
 )
 
@@ -112,10 +113,84 @@ func repair(w http.ResponseWriter, req *http.Request) {
 	data := cache.GetAllInHashRange(rangeStart, rangeEnd)
 	w.Header().Set("Content-Type", "application/json")
 	res := types.RepairResponse{Data: data}
+	mymetrics.M.AddRepairKeysTransferred(int64(len(res.Data)))
 	json.NewEncoder(w).Encode(res)
 }
 
-func GetHandler() *http.ServeMux {
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func is2xx(statusCode int) bool {
+	return statusCode >= 200 && statusCode < 300
+}
+func is4xx(statusCode int) bool {
+	return statusCode >= 400 && statusCode < 500
+}
+func is5xx(statusCode int) bool {
+	return statusCode >= 500
+}
+
+func MyMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Pre-processing
+		startTime := time.Now()
+		rw := &responseWriter{w, http.StatusOK}
+
+		// Call the next handler
+		next.ServeHTTP(rw, r)
+
+		// Post-processing
+		latency := time.Since(startTime)
+		switch r.URL.Path {
+		case "/get":
+			mymetrics.M.IncGetsTotal()
+			mymetrics.M.ObserveGetLatency(latency)
+			if is2xx(rw.statusCode) {
+				mymetrics.M.IncGets2xx()
+			} else if is4xx(rw.statusCode) {
+				mymetrics.M.IncGets4xx()
+			} else if is5xx(rw.statusCode) {
+				mymetrics.M.IncGets5xx()
+			}
+		case "/put":
+			isCoordinator := r.URL.Query().Get("coordinator") == ""
+			if isCoordinator {
+				mymetrics.M.IncPutsTotal()
+				mymetrics.M.ObservePutLatency(latency)
+				if is2xx(rw.statusCode) {
+					mymetrics.M.IncPuts2xx()
+				} else if is4xx(rw.statusCode) {
+					mymetrics.M.IncPuts4xx()
+				} else if is5xx(rw.statusCode) {
+					mymetrics.M.IncPuts5xx()
+				}
+			} else {
+				// not coordinator, therefore replication request
+				mymetrics.M.IncReplicationRequestsTotal()
+				mymetrics.M.ObserveReplicationLatency(latency)
+				if is4xx(rw.statusCode) || is5xx(rw.statusCode) {
+					mymetrics.M.IncReplicationFailed()
+				}
+			}
+		case "/repair":
+			mymetrics.M.IncRepairRequestsTotal()
+			mymetrics.M.ObserveRepairLatency(latency)
+			if is4xx(rw.statusCode) || is5xx(rw.statusCode) {
+				mymetrics.M.IncRepairFailed()
+			}
+		}
+
+	})
+}
+
+func GetHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/get", get)
 	mux.HandleFunc("/put", put)
@@ -123,5 +198,7 @@ func GetHandler() *http.ServeMux {
 	mux.HandleFunc("/health", health)
 	mux.HandleFunc("/kill", kill)
 	mux.HandleFunc("/repair", repair)
-	return mux
+
+	wrappedMux := MyMiddleware(mux)
+	return wrappedMux
 }

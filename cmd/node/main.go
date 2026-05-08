@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/lcampanella98/distributed-key-value-store/internal/api"
 	"github.com/lcampanella98/distributed-key-value-store/internal/benchmarks"
 	"github.com/lcampanella98/distributed-key-value-store/internal/client"
 	"github.com/lcampanella98/distributed-key-value-store/internal/cluster"
+	"github.com/lcampanella98/distributed-key-value-store/internal/mymetrics"
 )
 
 func main() {
@@ -48,6 +50,8 @@ func main() {
 	if thisNodeIdx == -1 {
 		panic("Could not find a node with this port in node list")
 	}
+	fmt.Println("Starting metric dumper...")
+	mymetrics.M.StartMetricDumper(time.Second * 20)
 	fmt.Println("initializing hash ring and membership...")
 	cluster.InitMembership(nodes, nodes[thisNodeIdx], replicas)
 	fmt.Println("initializing internal client...")
