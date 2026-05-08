@@ -69,6 +69,9 @@ func main() {
 		Handler: api.GetHandler(),
 	}
 	fmt.Println("serving...")
-	srv.ListenAndServe()
+	err := srv.ListenAndServe()
+	if err != nil {
+		fmt.Printf("Error from HTTP Listener: %v\n", err)
+	}
 
 }

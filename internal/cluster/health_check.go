@@ -17,6 +17,7 @@ type NodeStatus struct {
 var nodeStatuses = make(map[string]*NodeStatus)
 
 var durationBeforeDead time.Duration = time.Second * 8
+var healthCheckInterval time.Duration = time.Second * 4
 
 func StartHealthChecks(allNodes []Node) {
 	var peerNodes []Node
@@ -34,7 +35,7 @@ func StartHealthChecks(allNodes []Node) {
 
 	go func() {
 		for {
-			time.Sleep(4 * time.Second)
+			time.Sleep(healthCheckInterval)
 			changed := healthCheckPeers(peerNodes)
 			if changed {
 				aliveNodes := GetAliveNodes()

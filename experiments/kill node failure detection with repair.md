@@ -39,6 +39,9 @@ Data replication has ensured the data in M1 and M2 was not lost (even though 10.
 - 0.00% of gets from M3 returned incorrect value
 - Interpretation: When the dead node was brought back online, it pulled the required data from its peers. The peers calculated the data that the restarted node should have, i.e. the data for which the restarted node is part of the key's replica set, and returned that subset of data to the restarted node. The healthy nodes then see the dead node is alive again, recompute the hash ring, and begin routing traffic to it again. In contrast to the "kill node failure detection (no repair)" test, all get operations to the recovered cluster return the correct value. 
 
+### Final Remarks
+* The results in the recovered cluster look really good at first glance (0% errors, 0% stale reads), but importantly, this experiment did not give the cluster **constant traffic**. So importantly, it didn't test what happens when writes go to the cluster around the timeframe when repair is happening and the new node is coming back online and rejoining the cluster. This will be addressed in the "repair snapshot inconsistency" experiment. 
+
 ### === Metrics Captured from Coordinator After Test ===
 - puts_total=3000
 - puts_2xx=2893
