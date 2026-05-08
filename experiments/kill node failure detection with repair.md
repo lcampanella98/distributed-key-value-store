@@ -52,9 +52,9 @@ Data replication has ensured the data in M1 and M2 was not lost (even though 10.
 - gets_5xx=88
 - gets_failed=88
 - avg_get_latency_ms=0.08
-- replication_requests_total=0
-- replication_failed=0
-- avg_replication_latency_ms=0.00
+- replication_requests_total=5000
+- replication_failed=1000
+- avg_replication_latency_ms=0.19
 - repair_requests_total=3
 - repair_failed=0
 - avg_repair_latency_ms=0.33

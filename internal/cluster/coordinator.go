@@ -2,9 +2,11 @@ package cluster
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/lcampanella98/distributed-key-value-store/internal/cache"
 	"github.com/lcampanella98/distributed-key-value-store/internal/client"
+	"github.com/lcampanella98/distributed-key-value-store/internal/mymetrics"
 	"github.com/lcampanella98/distributed-key-value-store/internal/types"
 )
 
@@ -33,7 +35,17 @@ func CoordinatorPut(key, value string, replicaSet []Node, myIndexInReplicaSet in
 	var res types.PutResponse
 
 	putInReplica := func(i int, node Node, results chan<- putInReplicaResult) {
+		startTime := time.Now()
+
 		response, err := client.PutWithCoordinator(key, value, node.Addr, ThisNode.Name)
+
+		latency := time.Since(startTime)
+		mymetrics.M.IncReplicationRequestsTotal()
+		mymetrics.M.ObserveReplicationLatency(latency)
+		if err != nil {
+			mymetrics.M.IncReplicationFailed()
+		}
+
 		results <- putInReplicaResult{i: i, res: response, err: err}
 	}
 

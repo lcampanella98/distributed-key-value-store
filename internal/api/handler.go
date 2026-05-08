@@ -172,12 +172,7 @@ func MyMiddleware(next http.Handler) http.Handler {
 					mymetrics.M.IncPuts5xx()
 				}
 			} else {
-				// not coordinator, therefore replication request
-				mymetrics.M.IncReplicationRequestsTotal()
-				mymetrics.M.ObserveReplicationLatency(latency)
-				if is4xx(rw.statusCode) || is5xx(rw.statusCode) {
-					mymetrics.M.IncReplicationFailed()
-				}
+				// not coordinator, don't add those metrics
 			}
 		case "/repair":
 			mymetrics.M.IncRepairRequestsTotal()
