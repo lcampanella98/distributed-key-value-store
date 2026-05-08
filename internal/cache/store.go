@@ -1,6 +1,10 @@
 package cache
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/lcampanella98/distributed-key-value-store/internal/hashing"
+)
 
 var cache = make(map[string]string)
 var mut = sync.RWMutex{}
@@ -28,4 +32,25 @@ func Size() int {
 	mut.RLock()
 	defer mut.RUnlock()
 	return len(cache)
+}
+
+func GetAllInHashRange(rangeStart, rangeEnd uint64) map[string]string {
+	data := make(map[string]string)
+	mut.RLock()
+	defer mut.RUnlock()
+	for k, v := range cache {
+		h := hashing.Hash(k)
+		if hashing.IsInRange(rangeStart, rangeEnd, h) {
+			data[k] = v
+		}
+	}
+	return data
+}
+
+func PutAll(m map[string]string) {
+	mut.Lock()
+	defer mut.Unlock()
+	for k, v := range m {
+		cache[k] = v
+	}
 }

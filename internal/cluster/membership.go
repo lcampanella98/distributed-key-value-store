@@ -7,8 +7,10 @@ type Node struct {
 
 var ThisNode Node
 var Replicas int
+var AllNodes []Node
 
 func InitMembership(nodes []Node, thisNode Node, replicas int) {
+	AllNodes = nodes
 	ThisNode = thisNode
 	Replicas = replicas
 	rebuildHashRingWithNodes(nodes)

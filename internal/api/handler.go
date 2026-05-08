@@ -96,6 +96,25 @@ func kill(w http.ResponseWriter, req *http.Request) {
 	}()
 }
 
+func repair(w http.ResponseWriter, req *http.Request) {
+	q := req.URL.Query()
+	nodeName := q.Get("node")
+	nodeIdx := slices.IndexFunc(cluster.AllNodes, func(node cluster.Node) bool {
+		return node.Name == nodeName
+	})
+	if nodeIdx < 0 {
+		http.Error(w, "Invalid node name", http.StatusBadRequest)
+		return
+	}
+	node := cluster.AllNodes[nodeIdx]
+
+	rangeStart, rangeEnd := cluster.Ring.GetStartAndEndRangeForNode(node)
+	data := cache.GetAllInHashRange(rangeStart, rangeEnd)
+	w.Header().Set("Content-Type", "application/json")
+	res := types.RepairResponse{Data: data}
+	json.NewEncoder(w).Encode(res)
+}
+
 func GetHandler() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/get", get)
@@ -103,5 +122,6 @@ func GetHandler() *http.ServeMux {
 	mux.HandleFunc("/clear", clearCache)
 	mux.HandleFunc("/health", health)
 	mux.HandleFunc("/kill", kill)
+	mux.HandleFunc("/repair", repair)
 	return mux
 }

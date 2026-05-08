@@ -36,23 +36,28 @@ func main() {
 	cluster.SetCoordinatorConfig(writeMode)
 
 	var nodes []cluster.Node
-	var thisNode cluster.Node
-	for _, name := range nodeNames {
+	thisNodeIdx := -1
+	for i, name := range nodeNames {
 		node := cluster.Node{Name: name, Addr: "http://" + name}
 		nodes = append(nodes, node)
 		if strings.Contains(name, strconv.Itoa(port)) {
 			fmt.Printf("Found this node as %s\n", node.Name)
-			thisNode = node
+			thisNodeIdx = i
 		}
 	}
+	if thisNodeIdx == -1 {
+		panic("Could not find a node with this port in node list")
+	}
 	fmt.Println("initializing hash ring and membership...")
-	cluster.InitMembership(nodes, thisNode, replicas)
+	cluster.InitMembership(nodes, nodes[thisNodeIdx], replicas)
 	fmt.Println("initializing internal client...")
 	client.Init(true)
 	fmt.Println("starting health checks...")
 	cluster.StartHealthChecks(nodes)
 	fmt.Println("starting benchmarks...")
 	benchmarks.StartBenchmarks()
+	fmt.Println("Pulling data from peers...")
+	cluster.PullFromPeers(nodes, cluster.ThisNode)
 
 	addr := fmt.Sprintf("localhost:%d", port)
 	srv := &http.Server{

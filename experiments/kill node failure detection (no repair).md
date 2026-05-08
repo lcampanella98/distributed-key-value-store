@@ -1,5 +1,5 @@
 ### Test Objective
-* Test failure detection mechanism and behavior when a node dies
+* Test failure detection mechanism and behavior when a node dies and is brought back online later
 * Gather read/write statistics during 3 time intervals: 
 1. before the kill
 2. after the kill but before failure is detected

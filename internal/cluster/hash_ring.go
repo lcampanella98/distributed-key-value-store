@@ -6,6 +6,8 @@ import (
 	"math"
 	"slices"
 	"sync"
+
+	"github.com/lcampanella98/distributed-key-value-store/internal/hashing"
 )
 
 type nodeAndHash struct {
@@ -74,7 +76,7 @@ func (h *HashRing) binarySearchCeil(keyHash uint64) int {
 }
 
 func (ring *HashRing) GetOwnerNode(key string) Node {
-	keyHash := hash(key)
+	keyHash := hashing.Hash(key)
 	ring.mu.RLock()
 	defer ring.mu.RUnlock()
 	primaryIndex := ring.binarySearchCeil(keyHash)
@@ -83,7 +85,7 @@ func (ring *HashRing) GetOwnerNode(key string) Node {
 
 func (ring *HashRing) GetReplicaSet(key string) []Node {
 	replicaSet := make([]Node, 0)
-	keyHash := hash(key)
+	keyHash := hashing.Hash(key)
 	ring.mu.RLock()
 	defer ring.mu.RUnlock()
 	primaryIndex := ring.binarySearchCeil(keyHash)
@@ -95,10 +97,30 @@ func (ring *HashRing) GetReplicaSet(key string) []Node {
 	return replicaSet
 }
 
+func mod(a, b int) int {
+	return (a%b + b) % b
+}
+
+// TODO handle case when node is already in hash ring!
+func (ring *HashRing) GetStartAndEndRangeForNode(node Node) (uint64, uint64) {
+	hash := hashing.Hash(node.Name)
+	return ring.GetStartAndEndRangeForNodeHash(hash)
+}
+
+func (ring *HashRing) GetStartAndEndRangeForNodeHash(nodeHash uint64) (uint64, uint64) {
+	ring.mu.RLock()
+	defer ring.mu.RUnlock()
+	effectiveReplicas := min(Replicas, len(ring.sortedRing))
+	nextNodeIdx := ring.binarySearchCeil(nodeHash)
+	startNodeIdx := mod(nextNodeIdx-effectiveReplicas, len(ring.sortedRing))
+	rangeStart, rangeEnd := ring.sortedRing[startNodeIdx].hash, nodeHash
+	return rangeStart, rangeEnd
+}
+
 func (ring *HashRing) rebuildHashRing(nodes []Node) {
 	var newRing []nodeAndHash
 	for _, node := range nodes {
-		element := nodeAndHash{Node: node, hash: hash(node.Name)}
+		element := nodeAndHash{Node: node, hash: hashing.Hash(node.Name)}
 		newRing = append(newRing, element)
 	}
 	slices.SortFunc(newRing, compare)

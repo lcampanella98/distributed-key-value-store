@@ -1,9 +1,9 @@
-package cluster
+package hashing
 
 import (
 	"github.com/cespare/xxhash"
 )
 
-func hash(s string) uint64 {
+func Hash(s string) uint64 {
 	return xxhash.Sum64String(s)
 }

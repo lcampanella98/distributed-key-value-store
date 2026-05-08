@@ -37,7 +37,7 @@ func StartHealthChecks(allNodes []Node) {
 			changed := healthCheckPeers(peerNodes)
 			if changed {
 				fmt.Println("Rebuilding hash ring...")
-				rebuildHashRingWithNodes(getAliveNodes())
+				rebuildHashRingWithNodes(GetAliveNodes())
 			}
 		}
 	}()
@@ -48,7 +48,7 @@ type healthCheckResult struct {
 	ok   bool
 }
 
-func getAliveNodes() []Node {
+func GetAliveNodes() []Node {
 	var aliveNodes []Node
 	for _, status := range nodeStatuses {
 		if status.Alive {

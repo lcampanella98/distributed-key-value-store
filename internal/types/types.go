@@ -12,3 +12,7 @@ type PutResponse struct {
 	OnNode    string `json:"onNode"`
 	CacheSize int    `json:"cacheSize"`
 }
+
+type RepairResponse struct {
+	Data map[string]string `json:"data"`
+}
