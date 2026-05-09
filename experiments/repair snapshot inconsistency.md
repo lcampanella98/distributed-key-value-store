@@ -4,17 +4,18 @@
 2. pull the repair snapshots from peers after it has rejoined the cluster
 
 * The hypothesis is it's better to pull the repair snapshots after it has rejoined the cluster. Reason being, if we repair immediately on node recovery, writes that occur between that time and the time the other nodes see the recovered node as alive again and begin routing traffic to it, will never make it onto the recovered node, causing stale reads. But Delaying repair until after we're confident the node has rejoined the cluster accounts for those writes in the repair. 
-* Note how reads currently behave in the system: a get request attempts to read only from the primary. So if the network request to primary failed, or the requested data on the primary is stale, the get request will fail or contain stale data. 
+* Note how reads currently behave in the system: a get request attempts to read only from the primary. So if the network request to primary failed, or the requested data on the primary is stale, the get request will fail or contain stale data. This pessimistic consistency model was chosen right now for its simplicity. 
 
 
 ## Test Setup
 * We constantly put random pairs to the cluster every millisecond (1000 puts/second)
-* Each time we put a random pair to the cluster, 5 seconds later we perform a get of that key and compare the retrieved value to the expected value
+* Each time we put a random pair to the cluster, 5 seconds later we perform a get of that key and compare the retrieved value to the expected value. Note that different delays would produce different stale read percentages, so results are dependent on this delay. 
 * For the first 5 seconds, the cluster is healthy with 3 nodes and a replication factor of 3
 * Then we kill a node, the node is dead for the next 17 seconds
 * Then we revive the node, the node is alive for the next 15 seconds, at which point we end the test. 
 * All this time the system is performing the get/put logic described above, and we track the failed gets and puts within each time window
 * We run this test three times. Once with no repair (baseline), one with immediate repair, and one with delayed repair. 
+
 
 ## No Repair Results (Baseline)
 - === HEALTHY CLUSTER ===

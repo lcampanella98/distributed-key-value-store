@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 
 	"github.com/lcampanella98/distributed-key-value-store/internal/cache"
-	"github.com/lcampanella98/distributed-key-value-store/internal/client"
 	"github.com/lcampanella98/distributed-key-value-store/internal/cluster"
 	"github.com/lcampanella98/distributed-key-value-store/internal/mymetrics"
 	"github.com/lcampanella98/distributed-key-value-store/internal/types"
@@ -19,22 +18,28 @@ import (
 func get(w http.ResponseWriter, req *http.Request) {
 	q := req.URL.Query()
 	key := q.Get("key")
-	// fmt.Println("Get " + key)
+	coordinator := q.Get("coordinator")
+	isCoordinator := coordinator == ""
 	var res types.GetResponse
-	ownerNode := cluster.Ring.GetOwnerNode(key)
-	if ownerNode.Name == cluster.ThisNode.Name {
+	replicaSet := cluster.Ring.GetReplicaSet(key)
+	myIndexInReplicaSet := slices.IndexFunc(replicaSet, func(node cluster.Node) bool {
+		return node.Name == cluster.ThisNode.Name
+	})
+	if !isCoordinator && myIndexInReplicaSet != -1 {
 		// fmt.Printf("this node owns key %s\n", key)
 		value, ok := cache.Get(key)
-		res = types.GetResponse{Value: value, Exists: ok, OnNode: ownerNode.Name, CacheSize: cache.Size()}
-	} else {
+		res = types.GetResponse{Value: value, Exists: ok, OnNode: cluster.ThisNode.Name, CacheSize: cache.Size()}
+	} else if isCoordinator {
 		// fmt.Printf("node %s owns key %s\n", ownerNode.Name, key)
-		var err error
-		res, err = client.Get(key, ownerNode.Addr)
+		response, err := cluster.CoordinatorGet(key, replicaSet, myIndexInReplicaSet)
 		if err != nil {
-			fmt.Printf("Error occurred in get: %v\n", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		res = response
+	} else {
+		http.Error(w, "This node is not coordinator and is not in replica set", http.StatusBadRequest)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")

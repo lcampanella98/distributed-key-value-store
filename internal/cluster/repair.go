@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/lcampanella98/distributed-key-value-store/internal/cache"
 	"github.com/lcampanella98/distributed-key-value-store/internal/client"
@@ -21,7 +22,7 @@ func pull(fromNode Node, thisNode Node, results chan<- types.RepairResponse) {
 
 func PullFromPeers(nodes []Node, thisNode Node) {
 	go func() {
-		// time.Sleep(healthCheckInterval + time.Second)
+		time.Sleep(healthCheckInterval + time.Second)
 		results := make(chan types.RepairResponse, len(nodes))
 		nRequests := 0
 		for _, node := range nodes {

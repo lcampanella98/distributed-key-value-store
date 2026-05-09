@@ -149,12 +149,12 @@ func TestConstantTraffic() {
 	fmt.Printf("%.2f%% of gets errored (%v)\n", float64(getErrCounterHealthy)/float64(getCounterHealthy)*100, getErrCounterHealthy)
 	fmt.Printf("%.2f%% of gets returned incorrect value (%v)\n", float64(getWrongValueCounterHealthy)/float64(getCounterHealthy)*100, getWrongValueCounterHealthy)
 
-	fmt.Println("=== PRE-RECOVERY CLUSTER ===")
+	fmt.Println("=== 1 NODE DEAD CLUSTER ===")
 	fmt.Printf("%.2f%% of puts errored (%v)\n", float64(putErrCounterPreRecovery)/float64(putCounterPreRecovery)*100, putErrCounterPreRecovery)
 	fmt.Printf("%.2f%% of gets errored (%v)\n", float64(getErrCounterPreRecovery)/float64(getCounterPreRecovery)*100, getErrCounterPreRecovery)
 	fmt.Printf("%.2f%% of gets returned incorrect value (%v)\n", float64(getWrongValueCounterPreRecovery)/float64(getCounterPreRecovery)*100, getWrongValueCounterPreRecovery)
 
-	fmt.Println("=== POST-RECOVERY CLUSTER ===")
+	fmt.Println("=== NODE RECOVERED CLUSTER ===")
 	fmt.Printf("%.2f%% of puts errored (%v)\n", float64(putErrCounterPostRecovery)/float64(putCounterPostRecovery)*100, putErrCounterPostRecovery)
 	fmt.Printf("%.2f%% of gets errored (%v)\n", float64(getErrCounterPostRecovery)/float64(getCounterPostRecovery)*100, getErrCounterPostRecovery)
 	fmt.Printf("%.2f%% of gets returned incorrect value (%v)\n", float64(getWrongValueCounterPostRecovery)/float64(getCounterPostRecovery)*100, getWrongValueCounterPostRecovery)

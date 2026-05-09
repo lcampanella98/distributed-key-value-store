@@ -1,2 +1,4 @@
-# distributed-key-value-store
+# Distributed Key-Value Store
+
 A distributed key/value store written in Go
+

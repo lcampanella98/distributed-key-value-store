@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -99,4 +100,58 @@ func CoordinatorPut(key, value string, replicaSet []Node, myIndexInReplicaSet in
 		panic("Couldn't match write mode " + config.writeMode)
 	}
 
+}
+
+type getFromReplicaResult struct {
+	i   int
+	res types.GetResponse
+	err error
+}
+
+func CoordinatorGet(key string, replicaSet []Node, myIndexInReplicaSet int) (types.GetResponse, error) {
+	var res types.GetResponse
+
+	getFromReplica := func(i int, node Node, results chan<- getFromReplicaResult) {
+		startTime := time.Now()
+
+		response, err := client.GetWithCoordinator(key, node.Addr, ThisNode.Name)
+
+		latency := time.Since(startTime)
+		mymetrics.M.IncGetFromReplicaRequestsTotal()
+		mymetrics.M.ObserveGetFromReplicaLatency(latency)
+		if err != nil {
+			mymetrics.M.IncGetFromReplicaFailed()
+		}
+
+		results <- getFromReplicaResult{i: i, res: response, err: err}
+	}
+
+	results := make(chan getFromReplicaResult, len(replicaSet))
+	someReplicaSucceeded := false
+
+	for i, node := range replicaSet {
+		if i == myIndexInReplicaSet {
+			// coordinator node happens to be the owner/in replica set
+			// no need make a separate network call to put, since this is the current node just update locally
+			value, exists := cache.Get(key)
+			response := types.GetResponse{Exists: exists, Value: value, OnNode: ThisNode.Name, CacheSize: cache.Size()}
+			res = response
+			someReplicaSucceeded = true
+			break
+		} else {
+			getFromReplica(i, node, results)
+			result := <-results
+			if result.err == nil {
+				res = result.res
+				someReplicaSucceeded = true
+				break
+			}
+		}
+	}
+	close(results)
+	var err error = nil
+	if !someReplicaSucceeded {
+		err = errors.New("All replicas errored")
+	}
+	return res, err
 }

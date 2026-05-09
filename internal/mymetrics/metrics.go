@@ -25,6 +25,10 @@ type Metrics struct {
 	replicationFailed        int64
 	replicationLatencyTotal  time.Duration
 
+	getFromReplicaTotal        int64
+	getFromReplicaFailed       int64
+	getFromReplicaLatencyTotal time.Duration
+
 	repairRequestsTotal int64
 	repairFailed        int64
 	repairLatencyTotal  time.Duration
@@ -70,6 +74,12 @@ func (m *Metrics) Dump() {
 		avgRepairLatencyMs = float64(m.repairLatencyTotal.Milliseconds()) / float64(m.repairRequestsTotal)
 	}
 
+	var avgGetFromReplicaLatencyMs float64
+	if m.getFromReplicaTotal > 0 {
+		avgGetFromReplicaLatencyMs = float64(m.getFromReplicaLatencyTotal.Milliseconds()) / float64(m.getFromReplicaTotal)
+
+	}
+
 	fmt.Println("=== Metrics ===")
 
 	fmt.Printf("puts_total=%d\n", m.putsTotal)
@@ -89,6 +99,10 @@ func (m *Metrics) Dump() {
 	fmt.Printf("replication_requests_total=%d\n", m.replicationRequestsTotal)
 	fmt.Printf("replication_failed=%d\n", m.replicationFailed)
 	fmt.Printf("avg_replication_latency_ms=%.2f\n", avgReplicationLatencyMs)
+
+	fmt.Printf("get_from_replica_requests_total=%d\n", m.getFromReplicaTotal)
+	fmt.Printf("get_from_replica_failed=%d\n", m.getFromReplicaFailed)
+	fmt.Printf("avg_get_from_replica_latency_ms=%.2f\n", avgGetFromReplicaLatencyMs)
 
 	fmt.Printf("repair_requests_total=%d\n", m.repairRequestsTotal)
 	fmt.Printf("repair_failed=%d\n", m.repairFailed)
@@ -175,6 +189,24 @@ func (m *Metrics) ObserveReplicationLatency(d time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.replicationLatencyTotal += d
+}
+
+func (m *Metrics) IncGetFromReplicaRequestsTotal() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.getFromReplicaTotal++
+}
+
+func (m *Metrics) IncGetFromReplicaFailed() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.getFromReplicaFailed++
+}
+
+func (m *Metrics) ObserveGetFromReplicaLatency(d time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.getFromReplicaLatencyTotal += d
 }
 
 func (m *Metrics) IncRepairRequestsTotal() {

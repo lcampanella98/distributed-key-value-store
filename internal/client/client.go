@@ -50,8 +50,13 @@ func Init(isInternal bool) {
 }
 
 func Get(key string, addr string) (types.GetResponse, error) {
+	return GetWithCoordinator(key, addr, "")
+}
+
+func GetWithCoordinator(key string, addr string, coordinator string) (types.GetResponse, error) {
 	params := url.Values{}
 	params.Add("key", key)
+	params.Add("coordinator", coordinator)
 	queryString := params.Encode()
 
 	fullURL := fmt.Sprintf("%s/get?%s", addr, queryString)
@@ -63,9 +68,20 @@ func Get(key string, addr string) (types.GetResponse, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusInternalServerError {
-		fmt.Println("Internal server error")
-		return types.GetResponse{}, errors.New("internal server error on get")
+	if resp.StatusCode == http.StatusInternalServerError || resp.StatusCode == http.StatusBadRequest {
+		fmt.Printf("Unsuccessful get: %s\n", resp.Status)
+		bodyBytes, err := io.ReadAll(resp.Body)
+		var errorText string = resp.Status + " Reason: "
+		if err != nil {
+			fmt.Println("Could not read error body:", err)
+			errorText += "(Could not read error body)"
+		} else {
+			errorText += string(bodyBytes)
+		}
+
+		fmt.Println(errorText)
+
+		return types.GetResponse{}, errors.New(errorText)
 	}
 	var res types.GetResponse
 	json.NewDecoder(resp.Body).Decode(&res)
