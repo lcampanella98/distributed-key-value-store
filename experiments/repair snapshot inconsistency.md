@@ -14,8 +14,9 @@
 * Then we kill a node, the node is dead for the next 17 seconds
 * Then we revive the node, the node is alive for the next 15 seconds, at which point we end the test. 
 * All this time the system is performing the get/put logic described above, and we track the failed gets and puts within each time window
-* We run this test three times. Once with no repair (baseline), one with immediate repair, and one with delayed repair. 
 
+## Test Evaluation
+* We run this test three times. Once with no repair (baseline), one with immediate repair, and one with delayed repair, and compare the results
 
 ## No Repair Results (Baseline)
 - === HEALTHY CLUSTER ===
@@ -67,4 +68,5 @@
 * What we failed to consider is that in Delayed Repair, the node always rejoins the cluster slightly **before** repair snapshots are pulled, meaning that there is a time interval during which reads are routed to the recovered node, but repair has **not yet happened**, resulting in stale reads. 
 * How to address these stale reads? 
 * Unfortunately there is no great way to ensure repair runs at exactly the same time the node rejoins the cluster, considering health checks are periodic. Even if there were a way, we would still encounter some stale reads (though fewer than observed in this experiment)
-* The best way to address this issue is probably not chasing exact timing of the repair, but instead implementing read from replicas and/or read repair. 
+* The best way to address this issue is probably not chasing exact timing of the repair, but instead implementing read from replicas and/or read repair. See "read from replicas" experiment. 
+* Note that Delayed Repair is still superior to Immediate repair because the stale window in Delayed Repair is bounded until repair occurs, whereas the stale window in Immediate Repair is effectively forever, as without some anti-entropy protocol the recovered node will never get the missed writes. 

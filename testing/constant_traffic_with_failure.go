@@ -47,6 +47,10 @@ func TestConstantTraffic() {
 	var curGetErrCounter *int = &getErrCounterHealthy
 	var curGetWrongValueCounter *int = &getWrongValueCounterHealthy
 
+	staleReadCount := 0
+	firstStaleRead := time.Time{}
+	lastStaleRead := time.Time{}
+
 	mu := sync.Mutex{}
 
 	doGet := func(address string, key string, expectedValue string) {
@@ -63,6 +67,11 @@ func TestConstantTraffic() {
 		if getRes.Value != expectedValue {
 			mu.Lock()
 			(*curGetWrongValueCounter)++
+			if staleReadCount == 0 {
+				firstStaleRead = time.Now()
+			}
+			lastStaleRead = time.Now()
+			staleReadCount++
 			mu.Unlock()
 			// fmt.Println("wrong get value")
 		}
@@ -93,6 +102,13 @@ func TestConstantTraffic() {
 		}()
 	}
 
+	// build server
+	cmd := exec.Command("go", "build", "-o", `C:\Users\enzoc\repos\distributed-key-value-store\main.exe`, `C:\Users\enzoc\repos\distributed-key-value-store\cmd\node\main.go`)
+	err := cmd.Run()
+	if err != nil {
+		panic("Failed to build server executable")
+	}
+
 	// stage 1: healthy cluster for 5 seconds
 	for range 5000 {
 		doPutRandomPairThenGet(address)
@@ -116,11 +132,9 @@ func TestConstantTraffic() {
 	// stage 3: revive node
 	ctx, cancel := context.WithCancel(context.Background())
 
-	cmd := exec.CommandContext(
+	cmd = exec.CommandContext(
 		ctx,
-		"go",
-		"run",
-		`C:\Users\enzoc\repos\distributed-key-value-store\cmd\node\main.go`,
+		`C:\Users\enzoc\repos\distributed-key-value-store\main.exe`,
 		"-port=8082",
 		"-nodes=localhost:8080,localhost:8081,localhost:8082",
 		"-replicas=3",
@@ -135,6 +149,8 @@ func TestConstantTraffic() {
 	curGetCounter = &getCounterPostRecovery
 	curGetErrCounter = &getErrCounterPostRecovery
 	curGetWrongValueCounter = &getWrongValueCounterPostRecovery
+
+	nodeRecoveredTime := time.Now()
 
 	for range 10000 {
 		doPutRandomPairThenGet(address)
@@ -159,9 +175,12 @@ func TestConstantTraffic() {
 	fmt.Printf("%.2f%% of gets errored (%v)\n", float64(getErrCounterPostRecovery)/float64(getCounterPostRecovery)*100, getErrCounterPostRecovery)
 	fmt.Printf("%.2f%% of gets returned incorrect value (%v)\n", float64(getWrongValueCounterPostRecovery)/float64(getCounterPostRecovery)*100, getWrongValueCounterPostRecovery)
 
+	fmt.Printf("Node recovered at: %v\n", nodeRecoveredTime)
+	fmt.Printf("First stale read: %v and stale read window was %v\n", firstStaleRead, lastStaleRead.Sub(firstStaleRead))
+
 	cancel()
 
-	err := cmd.Wait()
+	err = cmd.Wait()
 	fmt.Println("child exited:", err)
 	fmt.Println("finished")
 

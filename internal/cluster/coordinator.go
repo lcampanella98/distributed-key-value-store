@@ -127,7 +127,11 @@ func CoordinatorGet(key string, replicaSet []Node, myIndexInReplicaSet int) (typ
 	}
 
 	results := make(chan getFromReplicaResult, len(replicaSet))
-	someReplicaSucceeded := false
+	// this flags whether at least 1 replica responded and has data for this key
+	foundKeyExists := false
+	// this flags whether at least 1 replica responded and has no data for this key
+	foundKeyDoesntExist := false
+	var keyDoesntExistRes types.GetResponse
 
 	for i, node := range replicaSet {
 		if i == myIndexInReplicaSet {
@@ -135,23 +139,44 @@ func CoordinatorGet(key string, replicaSet []Node, myIndexInReplicaSet int) (typ
 			// no need make a separate network call to put, since this is the current node just update locally
 			value, exists := cache.Get(key)
 			response := types.GetResponse{Exists: exists, Value: value, OnNode: ThisNode.Name, CacheSize: cache.Size()}
-			res = response
-			someReplicaSucceeded = true
-			break
+			if !exists {
+				if !foundKeyDoesntExist {
+					foundKeyDoesntExist = true
+					keyDoesntExistRes = response
+				}
+			} else {
+				res = response
+				foundKeyExists = true
+				break
+			}
 		} else {
 			getFromReplica(i, node, results)
 			result := <-results
 			if result.err == nil {
-				res = result.res
-				someReplicaSucceeded = true
-				break
+				if !result.res.Exists {
+					if !foundKeyDoesntExist {
+						foundKeyDoesntExist = true
+						keyDoesntExistRes = result.res
+					}
+				} else {
+					res = result.res
+					foundKeyExists = true
+					break
+				}
 			}
 		}
 	}
 	close(results)
 	var err error = nil
-	if !someReplicaSucceeded {
-		err = errors.New("All replicas errored")
+	if !foundKeyExists {
+		// no replica responded with data for this key. but a replica still might have responded with no data for the key rather than an error
+		if foundKeyDoesntExist {
+			// at least 1 replica responded that it has no data for this key
+			res = keyDoesntExistRes
+		} else {
+			// all replicas failed
+			err = errors.New("All replicas errored")
+		}
 	}
 	return res, err
 }
