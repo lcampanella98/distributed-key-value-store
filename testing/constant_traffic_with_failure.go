@@ -12,10 +12,11 @@ import (
 
 func TestConstantTraffic() {
 	fmt.Println("Testing with Constant Traffic")
+	writeMode := "best_effort"
 	addr := []string{"http://localhost:8080", "http://localhost:8081", "http://localhost:8082"}
 	coordinatorIdx := 0
 	killIdx := 2
-	putThenGetAfter := 5 * time.Second
+	putThenGetAfter := 10 * time.Second
 
 	// set address of coordinator
 	address := addr[coordinatorIdx]
@@ -48,12 +49,22 @@ func TestConstantTraffic() {
 	var curGetWrongValueCounter *int = &getWrongValueCounterHealthy
 
 	staleReadCount := 0
+	retryDelays := map[string]time.Duration{
+		"100ms":     100 * time.Millisecond,
+		"1 second":  1 * time.Second,
+		"2 seconds": 2 * time.Second,
+		"6 seconds": 6 * time.Second,
+	}
+	staleReadAfterRetry := make(map[string]int)
+	for delayStr := range retryDelays {
+		staleReadAfterRetry[delayStr] = 0
+	}
 	firstStaleRead := time.Time{}
 	lastStaleRead := time.Time{}
 
 	mu := sync.Mutex{}
 
-	doGet := func(address string, key string, expectedValue string) {
+	doGet := func(address string, key string, expectedValue string, isRetry bool) bool {
 		getRes, getErr := client.Get(key, address)
 		mu.Lock()
 		(*curGetCounter)++
@@ -64,17 +75,21 @@ func TestConstantTraffic() {
 			mu.Unlock()
 			// fmt.Printf("Get error: %v\n", putErr)
 		}
-		if getRes.Value != expectedValue {
-			mu.Lock()
-			(*curGetWrongValueCounter)++
-			if staleReadCount == 0 {
-				firstStaleRead = time.Now()
+		if getErr == nil && getRes.Value != expectedValue {
+			if !isRetry {
+				mu.Lock()
+				(*curGetWrongValueCounter)++
+				if staleReadCount == 0 {
+					firstStaleRead = time.Now()
+				}
+				lastStaleRead = time.Now()
+				staleReadCount++
+				mu.Unlock()
 			}
-			lastStaleRead = time.Now()
-			staleReadCount++
-			mu.Unlock()
 			// fmt.Println("wrong get value")
+			return true
 		}
+		return false
 		// if getRes.Value != value {
 		// 	fmt.Println("retrieved value not equal to expected value")
 		// }
@@ -97,8 +112,24 @@ func TestConstantTraffic() {
 			mu.Unlock()
 		}
 		go func() {
+			var staleRead bool
 			time.Sleep(putThenGetAfter)
-			doGet(address, key, value)
+			staleRead = doGet(address, key, value, false)
+			if !staleRead {
+				return
+			}
+
+			for delayStr, delayDur := range retryDelays {
+				go func(str string, dur time.Duration) {
+					time.Sleep(dur)
+					staleRead = doGet(address, key, value, true)
+					if !staleRead {
+						return
+					} else {
+						staleReadAfterRetry[str]++
+					}
+				}(delayStr, delayDur)
+			}
 		}()
 	}
 
@@ -138,7 +169,7 @@ func TestConstantTraffic() {
 		"-port=8082",
 		"-nodes=localhost:8080,localhost:8081,localhost:8082",
 		"-replicas=3",
-		"-writeMode=best_effort",
+		"-writeMode="+writeMode,
 	)
 
 	if err := cmd.Start(); err != nil {
@@ -158,25 +189,32 @@ func TestConstantTraffic() {
 	}
 
 	// wait for gets to finish
-	time.Sleep(putThenGetAfter)
+	time.Sleep(putThenGetAfter + (6 * time.Second))
 
-	fmt.Println("=== HEALTHY CLUSTER ===")
-	fmt.Printf("%.2f%% of puts errored (%v)\n", float64(putErrCounterHealthy)/float64(putCounterHealthy)*100, putErrCounterHealthy)
-	fmt.Printf("%.2f%% of gets errored (%v)\n", float64(getErrCounterHealthy)/float64(getCounterHealthy)*100, getErrCounterHealthy)
-	fmt.Printf("%.2f%% of gets returned incorrect value (%v)\n", float64(getWrongValueCounterHealthy)/float64(getCounterHealthy)*100, getWrongValueCounterHealthy)
+	fmt.Println("- === HEALTHY CLUSTER ===")
+	fmt.Printf("- %.2f%% of puts errored (%v)\n", float64(putErrCounterHealthy)/float64(putCounterHealthy)*100, putErrCounterHealthy)
+	fmt.Printf("- %.2f%% of gets errored (%v)\n", float64(getErrCounterHealthy)/float64(getCounterHealthy)*100, getErrCounterHealthy)
+	fmt.Printf("- %.2f%% of gets returned incorrect value (%v)\n", float64(getWrongValueCounterHealthy)/float64(getCounterHealthy)*100, getWrongValueCounterHealthy)
 
-	fmt.Println("=== 1 NODE DEAD CLUSTER ===")
-	fmt.Printf("%.2f%% of puts errored (%v)\n", float64(putErrCounterPreRecovery)/float64(putCounterPreRecovery)*100, putErrCounterPreRecovery)
-	fmt.Printf("%.2f%% of gets errored (%v)\n", float64(getErrCounterPreRecovery)/float64(getCounterPreRecovery)*100, getErrCounterPreRecovery)
-	fmt.Printf("%.2f%% of gets returned incorrect value (%v)\n", float64(getWrongValueCounterPreRecovery)/float64(getCounterPreRecovery)*100, getWrongValueCounterPreRecovery)
+	fmt.Println("- === 1 NODE DEAD CLUSTER ===")
+	fmt.Printf("- %.2f%% of puts errored (%v)\n", float64(putErrCounterPreRecovery)/float64(putCounterPreRecovery)*100, putErrCounterPreRecovery)
+	fmt.Printf("- %.2f%% of gets errored (%v)\n", float64(getErrCounterPreRecovery)/float64(getCounterPreRecovery)*100, getErrCounterPreRecovery)
+	fmt.Printf("- %.2f%% of gets returned incorrect value (%v)\n", float64(getWrongValueCounterPreRecovery)/float64(getCounterPreRecovery)*100, getWrongValueCounterPreRecovery)
 
-	fmt.Println("=== NODE RECOVERED CLUSTER ===")
-	fmt.Printf("%.2f%% of puts errored (%v)\n", float64(putErrCounterPostRecovery)/float64(putCounterPostRecovery)*100, putErrCounterPostRecovery)
-	fmt.Printf("%.2f%% of gets errored (%v)\n", float64(getErrCounterPostRecovery)/float64(getCounterPostRecovery)*100, getErrCounterPostRecovery)
-	fmt.Printf("%.2f%% of gets returned incorrect value (%v)\n", float64(getWrongValueCounterPostRecovery)/float64(getCounterPostRecovery)*100, getWrongValueCounterPostRecovery)
+	fmt.Println("- === NODE RECOVERED CLUSTER ===")
+	fmt.Printf("- %.2f%% of puts errored (%v)\n", float64(putErrCounterPostRecovery)/float64(putCounterPostRecovery)*100, putErrCounterPostRecovery)
+	fmt.Printf("- %.2f%% of gets errored (%v)\n", float64(getErrCounterPostRecovery)/float64(getCounterPostRecovery)*100, getErrCounterPostRecovery)
+	fmt.Printf("- %.2f%% of gets returned incorrect value (%v)\n", float64(getWrongValueCounterPostRecovery)/float64(getCounterPostRecovery)*100, getWrongValueCounterPostRecovery)
 
-	fmt.Printf("Node recovered at: %v\n", nodeRecoveredTime)
-	fmt.Printf("First stale read: %v and stale read window was %v\n", firstStaleRead, lastStaleRead.Sub(firstStaleRead))
+	fmt.Println("- === Stale Reads ===")
+	if staleReadCount > 0 {
+		for durationStr, staleReadCounter := range staleReadAfterRetry {
+			fmt.Printf("- %.2f%% of stale reads remained after %v\n", float64(staleReadCounter)/float64(staleReadCount)*100, durationStr)
+		}
+	}
+
+	fmt.Printf("- Node recovered at: %v\n", nodeRecoveredTime)
+	fmt.Printf("- First stale read: %v and stale read window was %v\n", firstStaleRead, lastStaleRead.Sub(firstStaleRead))
 
 	cancel()
 

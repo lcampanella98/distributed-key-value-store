@@ -1,0 +1,41 @@
+## strict mode
+- === HEALTHY CLUSTER ===
+- 0.00% of puts errored (0)
+- NaN% of gets errored (0)
+- NaN% of gets returned incorrect value (0)
+- === 1 NODE DEAD CLUSTER ===
+- 14.34% of puts errored (2437)
+- 0.00% of gets errored (0)
+- 0.00% of gets returned incorrect value (0)
+- === NODE RECOVERED CLUSTER ===
+- 0.00% of puts errored (0)
+- 0.00% of gets errored (0)
+- 0.74% of gets returned incorrect value (128)
+- === Stale Reads ===
+- 59.38% of stale reads remained after 1 second
+- 17.19% of stale reads remained after 2 seconds
+- 0.00% of stale reads remained after 6 seconds
+- 96.88% of stale reads remained after 100ms
+- Node recovered at: 2026-05-10 12:39:55.081746 -0400 EDT m=+35.266187301
+- First stale read: 2026-05-10 12:39:57.5721003 -0400 EDT m=+37.756635201 and stale read window was 2.538149s
+
+## best_effort mode
+- === HEALTHY CLUSTER ===
+- 0.00% of puts errored (0)
+- NaN% of gets errored (0)
+- NaN% of gets returned incorrect value (0)
+- === 1 NODE DEAD CLUSTER ===
+- 1.75% of puts errored (297)
+- 0.00% of gets errored (0)
+- 0.00% of gets returned incorrect value (0)
+- === NODE RECOVERED CLUSTER ===
+- 0.00% of puts errored (0)
+- 0.00% of gets errored (0)
+- 1.54% of gets returned incorrect value (277)
+- === Stale Reads ===
+- 97.47% of stale reads remained after 100ms
+- 78.70% of stale reads remained after 1 second
+- 55.96% of stale reads remained after 2 seconds
+- 0.00% of stale reads remained after 6 seconds
+- Node recovered at: 2026-05-10 12:44:25.4796689 -0400 EDT m=+35.079881601
+- First stale read: 2026-05-10 12:44:25.6064873 -0400 EDT m=+35.206704701 and stale read window was 4.8954242s

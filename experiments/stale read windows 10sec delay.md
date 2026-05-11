@@ -1,0 +1,62 @@
+## Results No Repair (baseline)
+- === HEALTHY CLUSTER ===
+- 0.00% of puts errored (0)
+- 0.00% of gets errored (0)
+- 0.00% of gets returned incorrect value (0)
+- === 1 NODE DEAD CLUSTER ===
+- 1.75% of puts errored (297)
+- 0.00% of gets errored (0)
+- 0.00% of gets returned incorrect value (0)
+- === NODE RECOVERED CLUSTER ===
+- 0.00% of puts errored (0)
+- 0.00% of gets errored (0)
+- 3.38% of gets returned incorrect value (659)
+- === Stale Reads ===
+- 100.00% of stale reads remained after 100ms
+- 100.00% of stale reads remained after 1 second
+- 100.00% of stale reads remained after 2 seconds
+- 100.00% of stale reads remained after 6 seconds
+- Node recovered at: 2026-05-09 18:16:23.77947 -0400 EDT m=+36.184000801
+- First stale read: 2026-05-09 18:16:27.8001193 -0400 EDT m=+40.204650101 and stale read window was 9.9861105s
+
+## Results with Immediate Repair
+- === HEALTHY CLUSTER ===
+- 0.00% of puts errored (0)
+- 0.00% of gets errored (0)
+- 0.00% of gets returned incorrect value (0)
+- === 1 NODE DEAD CLUSTER ===
+- 1.69% of puts errored (287)
+- 0.00% of gets errored (0)
+- 0.00% of gets returned incorrect value (0)
+- === NODE RECOVERED CLUSTER ===
+- 0.00% of puts errored (0)
+- 0.00% of gets errored (0)
+- 1.20% of gets returned incorrect value (213)
+- === Stale Reads ===
+- 100.00% of stale reads remained after 6 seconds
+- 100.00% of stale reads remained after 100ms
+- 100.00% of stale reads remained after 1 second
+- 100.00% of stale reads remained after 2 seconds
+- Node recovered at: 2026-05-09 18:24:00.5473191 -0400 EDT m=+34.979156701
+- First stale read: 2026-05-09 18:24:10.5743902 -0400 EDT m=+45.006227801 and stale read window was 3.4900891s
+
+## Results with Delayed Repair
+- === HEALTHY CLUSTER ===
+- 0.00% of puts errored (0)
+- 0.00% of gets errored (0)
+- 0.00% of gets returned incorrect value (0)
+- === 1 NODE DEAD CLUSTER ===
+- 1.59% of puts errored (270)
+- 0.00% of gets errored (0)
+- 0.00% of gets returned incorrect value (0)
+- === NODE RECOVERED CLUSTER ===
+- 0.00% of puts errored (0)
+- 0.00% of gets errored (0)
+- 1.40% of gets returned incorrect value (251)
+- === Stale Reads ===
+- 96.41% of stale reads remained after 100ms
+- 77.69% of stale reads remained after 1 second
+- 57.77% of stale reads remained after 2 seconds
+- 0.00% of stale reads remained after 6 seconds
+- Node recovered at: 2026-05-09 18:26:12.3262601 -0400 EDT m=+35.965798101
+- First stale read: 2026-05-09 18:26:12.5664795 -0400 EDT m=+36.206017501 and stale read window was 4.7934426s

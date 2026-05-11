@@ -46,7 +46,7 @@
 - Interpretation: The healthy nodes have detected that one node is dead, and have stopped routing traffic to it and have recalculated the hash ring. 
 Data replication has ensured the data in M1 and M2 was not lost (even though 7.8% of M2 puts errored in the degraded cluster, that data was still written to the healthy replicas. This is because in best-effort mode, the coordinator may return an error even if writes succeeded on a subset of replicas. In best-effort mode, the coordinator requires that the primary succeeds in order to return success)
 
-### === RECOVERED CLUSTER (Dead node back online, no data rebalancing) ===
+### === RECOVERED CLUSTER (Dead node back online, no repair) ===
 - 0.00% of gets from M1 errored
 - 9.20% of gets from M1 returned incorrect value
 - 0.00% of gets from M2 errored
