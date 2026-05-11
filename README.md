@@ -63,12 +63,12 @@ A distributed in-memory cache implemented in Go featuring:
 
 ### Replica Selection
 * If a node is repeatedly failing health checks, it will be removed from each node's local view of the hash ring. 
-* Replica selection continues as normal, without the unhealthy node in the hash ring. A new node (the next node moving clockwise) replaces the unhealthy one.  
+* Replica selection continues as normal, without the unhealthy node in the hash ring. That is, a new node (the next node moving clockwise) receives writes in place of the dead node. 
 
 ### Repair
 * When a dead node comes back alive, it contains no data, which will introduce stale reads into the system if not addressed. 
 * We address this by having the recovered node pull repair snapshots from each of its peers. We let each peer node calculate what subset of its data the recovered node should contain (based on the keys for which the recovered node is in the replica set), and respond with that data. 
-* The recovered node merged the repair data received from its peers. If one or more peers are unavailable, the repair is still likely to succeed as the data on the unavailable peers will have been replicated on other nodes. 
+* The recovered node merges the repair data received from its peers. If one or more peers are unavailable, the repair is still likely to succeed as the data on the unavailable peers will have been replicated on other nodes. 
 * The timing of **when** repair takes place during node recovery matters for minimizing stale reads. This will be discussed later. 
 
 ### Membership
